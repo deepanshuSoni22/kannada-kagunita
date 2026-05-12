@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const onboardingScreen = document.getElementById('onboarding-screen');
   const skipBtn = document.getElementById('skip-onboarding');
+  const nextModelBtn = document.getElementById('next-model');
   const musicToggleBtn = document.getElementById('music-toggle');
   const welcomeSound = document.getElementById('welcome-sound');
   const bgmSound = document.getElementById('bgm-sound');
@@ -20,6 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const onboardingText = onboardingScreen.querySelector('.onboarding-text h1');
   const canvas = document.getElementById('onboarding-canvas');
   let isMusicPlaying = false;
+  const modelFiles = [
+    'assets/models/character.glb',
+    'assets/models/labubu.glb',
+    'assets/models/mcqueen.glb',
+    'assets/models/robot.glb',
+  ];
+  let currentModelIndex = 0;
 
   if (bgmSound) {
     // Best effort autoplay: browsers usually allow muted autoplay.
@@ -84,6 +92,57 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error(message, error || '');
     spinner.classList.add('hidden');
     setOnboardingMessage('Welcome! Tap continue to enter.');
+  }
+
+  function getModelLabel(path) {
+    return path.split('/').pop().replace('.glb', '');
+  }
+
+  function loadModelByIndex(index) {
+    if (!scene || !renderer || !camera) return;
+    if (typeof THREE.GLTFLoader !== 'function') {
+      failOnboarding('GLTFLoader is unavailable.');
+      return;
+    }
+
+    const safeIndex = ((index % modelFiles.length) + modelFiles.length) % modelFiles.length;
+    currentModelIndex = safeIndex;
+    const modelPath = modelFiles[currentModelIndex];
+
+    if (model) {
+      scene.remove(model);
+      model = null;
+    }
+
+    spinner.classList.remove('hidden');
+    setOnboardingMessage(`Welcome, Rudri! • ${getModelLabel(modelPath)}`);
+
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      modelPath,
+      (gltf) => {
+        model = gltf.scene;
+
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scale = 5.8 / maxDim;
+
+        model.scale.multiplyScalar(scale);
+
+        box.setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
+        modelBaseY = model.position.y;
+
+        scene.add(model);
+        spinner.classList.add('hidden');
+      },
+      undefined,
+      (error) => {
+        failOnboarding(`Error loading model: ${getModelLabel(modelPath)}`, error);
+      }
+    );
   }
 
   // Initialize Three.js
@@ -157,43 +216,8 @@ document.addEventListener('DOMContentLoaded', () => {
       controls.update();
     }
 
-    // Load 3D model
-    const loader = new THREE.GLTFLoader();
-    loader.load(
-      'assets/models/character.glb',
-      (gltf) => {
-        model = gltf.scene;
-        
-        // Auto-scale model to fit view
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 5.8 / maxDim;
-        
-        model.scale.multiplyScalar(scale);
-        
-        // Center model
-        box.setFromObject(model);
-        const center = box.getCenter(new THREE.Vector3());
-        model.position.sub(center);
-        modelBaseY = model.position.y;
-        
-        scene.add(model);
-
-        // Hide spinner once model loads
-        spinner.classList.add('hidden');
-
-        // Start animation loop
-        animate();
-      },
-      (progress) => {
-        // Optional: track loading progress
-        console.log('Model loading:', (progress.loaded / progress.total * 100) + '%');
-      },
-      (error) => {
-        failOnboarding('Error loading model.', error);
-      }
-    );
+    loadModelByIndex(currentModelIndex);
+    animate();
 
     return true;
   }
@@ -290,6 +314,11 @@ document.addEventListener('DOMContentLoaded', () => {
     startBackgroundMusic();
     dismissOnboarding();
   });
+  if (nextModelBtn) {
+    nextModelBtn.addEventListener('click', () => {
+      loadModelByIndex(currentModelIndex + 1);
+    });
+  }
 
   if (musicToggleBtn) {
     musicToggleBtn.addEventListener('click', toggleBackgroundMusic);
@@ -347,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
     app.innerHTML = `
       <section class="home-hero">
         <h2>ಅಕ್ಷರಗಳು</h2>
+        <button class="nav-btn" id="showOnboardingBtn" type="button" aria-label="Open onboarding exhibition">3D Exhibition</button>
       </section>
       <section class="grid-shell">
         <div class="grid-head">
@@ -365,6 +395,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+    const showOnboardingBtn = app.querySelector('#showOnboardingBtn');
+    if (showOnboardingBtn) {
+      showOnboardingBtn.addEventListener('click', () => {
+        showOnboarding();
+      });
+    }
   }
 
   function renderLetterView(item) {

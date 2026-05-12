@@ -4,41 +4,123 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ===== ONBOARDING SYSTEM =====
   let onboardingActive = false;
+  let onboardingShown = false;
   let scene, camera, renderer, model;
+  let controls = null;
+  let modelBaseY = 0;
   let onboardingTimeout = null;
 
   const onboardingScreen = document.getElementById('onboarding-screen');
   const skipBtn = document.getElementById('skip-onboarding');
+  const musicToggleBtn = document.getElementById('music-toggle');
   const welcomeSound = document.getElementById('welcome-sound');
+  const bgmSound = document.getElementById('bgm-sound');
   const spinner = onboardingScreen.querySelector('.spinner');
+  const onboardingText = onboardingScreen.querySelector('.onboarding-text h1');
   const canvas = document.getElementById('onboarding-canvas');
+  let isMusicPlaying = false;
+
+  if (bgmSound) {
+    // Best effort autoplay: browsers usually allow muted autoplay.
+    bgmSound.muted = true;
+    bgmSound.autoplay = true;
+    bgmSound.volume = 0.45;
+    bgmSound.play().catch(() => {
+      // Ignore: some browsers still block this until user gesture.
+    });
+  }
+
+  function updateMusicButton() {
+    if (!musicToggleBtn) return;
+    musicToggleBtn.textContent = isMusicPlaying ? 'Music: On' : 'Music: Off';
+    musicToggleBtn.setAttribute('aria-label', isMusicPlaying ? 'Pause music' : 'Play music');
+  }
+
+  function startBackgroundMusic() {
+    if (!bgmSound || isMusicPlaying) return;
+    bgmSound.muted = false;
+    bgmSound.volume = 0.45;
+    bgmSound.play().then(() => {
+      isMusicPlaying = true;
+      updateMusicButton();
+    }).catch((err) => {
+      console.log('Background music blocked until user interaction:', err);
+      isMusicPlaying = false;
+      updateMusicButton();
+    });
+  }
+
+  function pauseBackgroundMusic() {
+    if (!bgmSound) return;
+    bgmSound.pause();
+    isMusicPlaying = false;
+    updateMusicButton();
+  }
+
+  function toggleBackgroundMusic() {
+    if (isMusicPlaying) {
+      pauseBackgroundMusic();
+    } else {
+      startBackgroundMusic();
+    }
+  }
+
+  function setOnboardingMessage(message) {
+    if (onboardingText) {
+      onboardingText.textContent = message;
+    }
+  }
+
+  function failOnboarding(message, error) {
+    console.error(message, error || '');
+    spinner.classList.add('hidden');
+    setOnboardingMessage('Welcome! Tap continue to enter.');
+  }
 
   // Initialize Three.js
   function initThreeJS() {
-    const canvas = document.getElementById('onboarding-canvas');
-    
+    if (!window.THREE) {
+      failOnboarding('Three.js is not available.');
+      return false;
+    }
+
+    if (!canvas) {
+      failOnboarding('Onboarding canvas not found.');
+      return false;
+    }
+
+    if (typeof THREE.GLTFLoader !== 'function') {
+      failOnboarding('GLTFLoader is unavailable.');
+      return false;
+    }
+
     // Scene setup
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x3c4f76);
 
-    // Use canvas dimensions (explicit from HTML: 500x500)
-    const width = canvas.clientWidth || 500;
-    const height = canvas.clientHeight || 500;
+    // Use on-screen canvas dimensions for reliable camera framing.
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width || canvas.clientWidth || 500));
+    const height = Math.max(1, Math.floor(rect.height || canvas.clientHeight || 500));
 
     // Camera setup - adjusted for better view
     camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 6);
+    camera.position.set(0, 0.1, 4.2);
 
     // Renderer setup
-    renderer = new THREE.WebGLRenderer({ 
-      canvas: canvas,
-      antialias: true, 
-      alpha: false,
-      preserveDrawingBuffer: true
-    });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true,
+        alpha: true
+      });
+      renderer.setSize(width, height, false);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setClearColor(0x000000, 0);
+      renderer.shadowMap.enabled = true;
+    } catch (error) {
+      failOnboarding('WebGL renderer failed to initialize.', error);
+      return false;
+    }
 
     // Lighting - improved for visibility
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
@@ -48,6 +130,17 @@ document.addEventListener('DOMContentLoaded', () => {
     directionalLight.position.set(5, 5, 5);
     directionalLight.castShadow = true;
     scene.add(directionalLight);
+
+    if (typeof THREE.OrbitControls === 'function') {
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.enablePan = false;
+      controls.minDistance = 2.4;
+      controls.maxDistance = 7.5;
+      controls.target.set(0, 0.2, 0);
+      controls.update();
+    }
 
     // Load 3D model
     const loader = new THREE.GLTFLoader();
@@ -60,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 4 / maxDim;
+        const scale = 5.8 / maxDim;
         
         model.scale.multiplyScalar(scale);
         
@@ -68,6 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         box.setFromObject(model);
         const center = box.getCenter(new THREE.Vector3());
         model.position.sub(center);
+        modelBaseY = model.position.y;
         
         scene.add(model);
 
@@ -82,22 +176,26 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Model loading:', (progress.loaded / progress.total * 100) + '%');
       },
       (error) => {
-        console.error('Error loading model:', error);
-        spinner.textContent = '⚠️';
-        spinner.style.fontSize = '32px';
+        failOnboarding('Error loading model.', error);
       }
     );
+
+    return true;
   }
 
   function animate() {
+    if (!renderer || !camera || !scene) return;
     requestAnimationFrame(animate);
 
     if (model) {
-      model.rotation.y += 0.005;
       // Subtle floating animation
       if (!model._floatOffset) model._floatOffset = 0;
       model._floatOffset += 0.01;
-      model.position.z = Math.sin(model._floatOffset) * 0.3;
+      model.position.y = modelBaseY + Math.sin(model._floatOffset) * 0.06;
+    }
+
+    if (controls) {
+      controls.update();
     }
 
     renderer.render(scene, camera);
@@ -105,6 +203,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Audio playback with autoplay override
   function playWelcomeSound() {
+    if (!welcomeSound) return;
+
+    const onAudioError = () => {
+      console.warn('Welcome sound failed to load.');
+    };
+    welcomeSound.addEventListener('error', onAudioError, { once: true });
+
     welcomeSound.muted = true;
     welcomeSound.play().catch((err) => {
       console.log('Autoplay muted (browser policy):', err);
@@ -123,18 +228,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Show onboarding screen
   function showOnboarding() {
+    if (onboardingActive) return;
+
     onboardingActive = true;
+    onboardingShown = true;
     onboardingScreen.classList.remove('hidden');
     onboardingScreen.style.display = 'flex';
+    onboardingScreen.style.pointerEvents = 'auto';
+    onboardingScreen.style.zIndex = '9999';
 
-    initThreeJS();
+    spinner.classList.remove('hidden');
+    setOnboardingMessage('Welcome, Rudri!');
+
+    try {
+      initThreeJS();
+    } catch (error) {
+      failOnboarding('Onboarding initialization crashed.', error);
+    }
+
     playWelcomeSound();
-
-    // Auto-advance after 4 seconds
-    clearTimeout(onboardingTimeout);
-    onboardingTimeout = setTimeout(() => {
-      dismissOnboarding();
-    }, 4000);
   }
 
   // Dismiss onboarding screen
@@ -154,15 +266,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 400);
   }
 
-  // Skip button listener
-  skipBtn.addEventListener('click', dismissOnboarding);
-
-  // Canvas/screen click also dismisses
-  onboardingScreen.addEventListener('click', (e) => {
-    if (e.target === onboardingScreen || e.target === canvas) {
-      dismissOnboarding();
+  // Continue button listener
+  skipBtn.addEventListener('click', () => {
+    if (welcomeSound) {
+      welcomeSound.pause();
+      welcomeSound.currentTime = 0;
     }
+    startBackgroundMusic();
+    dismissOnboarding();
   });
+
+  if (musicToggleBtn) {
+    musicToggleBtn.addEventListener('click', toggleBackgroundMusic);
+  }
+
+  // Resume/unmute music on first real user interaction if autoplay was blocked.
+  const activateMusicFromGesture = () => {
+    if (!isMusicPlaying) startBackgroundMusic();
+    document.removeEventListener('pointerdown', activateMusicFromGesture);
+    document.removeEventListener('keydown', activateMusicFromGesture);
+  };
+  document.addEventListener('pointerdown', activateMusicFromGesture, { once: true });
+  document.addEventListener('keydown', activateMusicFromGesture, { once: true });
+
+  updateMusicButton();
 
   // ===== ROUTING SYSTEM =====
 
@@ -253,9 +380,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function render() {
     const routeLetter = getRouteLetter();
     if (!routeLetter) {
-      // Show onboarding before home
-      showOnboarding();
       renderHome();
+      if (!onboardingShown) {
+        showOnboarding();
+      }
       document.title = 'Kannada Kagunita — Kids';
       return;
     }

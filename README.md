@@ -2,16 +2,18 @@
 
 Public URL: https://deepanshusoni22.github.io/kannada-kagunita/
 
-Open `index.html` in a modern browser (no build step required).
+Run the app from a local static server (recommended for 3D/audio assets).
 
 
 Quick steps:
 
 ```sh
 # from this project folder
-xdg-open index.html  # Linux
-# or open the file in your browser
+python3 -m http.server 8000
+# then open http://localhost:8000
 ```
+
+Avoid testing from `file://` for onboarding, because `GLTFLoader` and media playback can fail or behave inconsistently when opened directly as a local file.
 
 
 What’s included:

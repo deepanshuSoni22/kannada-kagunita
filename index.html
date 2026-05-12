@@ -8,8 +8,29 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <button id="music-toggle" class="music-toggle" type="button" aria-label="Play music">Music: Off</button>
+    <!-- Onboarding Screen -->
+    <div id="onboarding-screen" class="onboarding-screen">
+      <div class="onboarding-overlay">
+        <div class="spinner"></div>
+        <div class="canvas-container">
+          <canvas id="onboarding-canvas" width="500" height="500"></canvas>
+        </div>
+        <div class="onboarding-text">
+          <h1>Welcome, Rudri!</h1>
+        </div>
+        <button id="skip-onboarding" class="skip-btn" aria-label="Continue to home page">Continue</button>
+      </div>
+      <audio id="welcome-sound" src="assets/sounds/welcome.mp3" preload="auto"></audio>
+    </div>
+    <audio id="bgm-sound" src="assets/sounds/bgm.mp3" preload="auto" loop></audio>
+    <audio id="click-sound" src="assets/sounds/button-click.wav" preload="auto"></audio>
+
     <main id="app" class="app" aria-live="polite"></main>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="gltfloader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="data/kagunita.js"></script>
     <script src="script.js" defer></script>
   </body>

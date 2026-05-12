@@ -1,0 +1,14 @@
+
+  function createPlaceholderModel() {
+    model = new THREE.Group();
+    const geometry = new THREE.IcosahedronGeometry(2, 4);
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x4dd0e1,
+      emissive: 0x2196f3,
+      shininess: 100
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    model.add(mesh);
+    scene.add(model);
+    spinner.classList.add('hidden');
+  }

@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const musicToggleBtn = document.getElementById('music-toggle');
   const welcomeSound = document.getElementById('welcome-sound');
   const bgmSound = document.getElementById('bgm-sound');
+  const clickSound = document.getElementById('click-sound');
   const spinner = onboardingScreen.querySelector('.spinner');
   const onboardingText = onboardingScreen.querySelector('.onboarding-text h1');
   const canvas = document.getElementById('onboarding-canvas');
@@ -63,6 +64,14 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       startBackgroundMusic();
     }
+  }
+
+  function playButtonClickSound() {
+    if (!clickSound) return;
+    clickSound.currentTime = 0;
+    clickSound.play().catch(() => {
+      // Ignore browser restrictions before first gesture.
+    });
   }
 
   function setOnboardingMessage(message) {
@@ -279,6 +288,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (musicToggleBtn) {
     musicToggleBtn.addEventListener('click', toggleBackgroundMusic);
   }
+
+  // Play cute click SFX for all button clicks (onboarding + app pages).
+  document.addEventListener('click', (event) => {
+    const clickedButton = event.target.closest('button');
+    if (!clickedButton || clickedButton.disabled) return;
+    playButtonClickSound();
+  });
 
   // Resume/unmute music on first real user interaction if autoplay was blocked.
   const activateMusicFromGesture = () => {

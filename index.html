@@ -8,8 +8,25 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
+    <!-- Onboarding Screen -->
+    <div id="onboarding-screen" class="onboarding-screen">
+      <div class="onboarding-overlay">
+        <div class="spinner"></div>
+        <div class="canvas-container">
+          <canvas id="onboarding-canvas" width="500" height="500"></canvas>
+        </div>
+        <div class="onboarding-text">
+          <h1>Welcome, Rudri!</h1>
+        </div>
+        <button id="skip-onboarding" class="skip-btn" aria-label="Skip introduction">Skip</button>
+      </div>
+      <audio id="welcome-sound" src="assets/sounds/welcome.mp3" preload="auto"></audio>
+    </div>
+
     <main id="app" class="app" aria-live="polite"></main>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/loaders/GLTFLoader.js"></script>
     <script src="data/kagunita.js"></script>
     <script src="script.js" defer></script>
   </body>

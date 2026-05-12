@@ -2,6 +2,170 @@ document.addEventListener('DOMContentLoaded', () => {
   const data = window.KAGUNITA_DATA || [];
   const app = document.getElementById('app');
 
+  // ===== ONBOARDING SYSTEM =====
+  let onboardingActive = false;
+  let scene, camera, renderer, model;
+  let onboardingTimeout = null;
+
+  const onboardingScreen = document.getElementById('onboarding-screen');
+  const skipBtn = document.getElementById('skip-onboarding');
+  const welcomeSound = document.getElementById('welcome-sound');
+  const spinner = onboardingScreen.querySelector('.spinner');
+  const canvas = document.getElementById('onboarding-canvas');
+
+  // Initialize Three.js
+  function initThreeJS() {
+    const canvas = document.getElementById('onboarding-canvas');
+    
+    // Scene setup
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x3c4f76);
+
+    // Use canvas dimensions (explicit from HTML: 500x500)
+    const width = canvas.clientWidth || 500;
+    const height = canvas.clientHeight || 500;
+
+    // Camera setup - adjusted for better view
+    camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    camera.position.set(0, 0, 6);
+
+    // Renderer setup
+    renderer = new THREE.WebGLRenderer({ 
+      canvas: canvas,
+      antialias: true, 
+      alpha: false,
+      preserveDrawingBuffer: true
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+
+    // Lighting - improved for visibility
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 5, 5);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
+    // Load 3D model
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      'assets/models/character.glb',
+      (gltf) => {
+        model = gltf.scene;
+        
+        // Auto-scale model to fit view
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 4 / maxDim;
+        
+        model.scale.multiplyScalar(scale);
+        
+        // Center model
+        box.setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
+        
+        scene.add(model);
+
+        // Hide spinner once model loads
+        spinner.classList.add('hidden');
+
+        // Start animation loop
+        animate();
+      },
+      (progress) => {
+        // Optional: track loading progress
+        console.log('Model loading:', (progress.loaded / progress.total * 100) + '%');
+      },
+      (error) => {
+        console.error('Error loading model:', error);
+        spinner.textContent = '⚠️';
+        spinner.style.fontSize = '32px';
+      }
+    );
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    if (model) {
+      model.rotation.y += 0.005;
+      // Subtle floating animation
+      if (!model._floatOffset) model._floatOffset = 0;
+      model._floatOffset += 0.01;
+      model.position.z = Math.sin(model._floatOffset) * 0.3;
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  // Audio playback with autoplay override
+  function playWelcomeSound() {
+    welcomeSound.muted = true;
+    welcomeSound.play().catch((err) => {
+      console.log('Autoplay muted (browser policy):', err);
+    });
+
+    // Try unmute on first interaction
+    const tryUnmute = () => {
+      welcomeSound.muted = false;
+      document.removeEventListener('click', tryUnmute);
+      document.removeEventListener('keydown', tryUnmute);
+    };
+
+    document.addEventListener('click', tryUnmute, { once: true });
+    document.addEventListener('keydown', tryUnmute, { once: true });
+  }
+
+  // Show onboarding screen
+  function showOnboarding() {
+    onboardingActive = true;
+    onboardingScreen.classList.remove('hidden');
+    onboardingScreen.style.display = 'flex';
+
+    initThreeJS();
+    playWelcomeSound();
+
+    // Auto-advance after 4 seconds
+    clearTimeout(onboardingTimeout);
+    onboardingTimeout = setTimeout(() => {
+      dismissOnboarding();
+    }, 4000);
+  }
+
+  // Dismiss onboarding screen
+  function dismissOnboarding() {
+    if (!onboardingActive) return;
+
+    onboardingActive = false;
+    clearTimeout(onboardingTimeout);
+
+    onboardingScreen.classList.add('hidden');
+
+    // Fade out animation, then hide completely
+    setTimeout(() => {
+      onboardingScreen.style.display = 'none';
+      onboardingScreen.style.pointerEvents = 'none';
+      onboardingScreen.style.zIndex = '-1';
+    }, 400);
+  }
+
+  // Skip button listener
+  skipBtn.addEventListener('click', dismissOnboarding);
+
+  // Canvas/screen click also dismisses
+  onboardingScreen.addEventListener('click', (e) => {
+    if (e.target === onboardingScreen || e.target === canvas) {
+      dismissOnboarding();
+    }
+  });
+
+  // ===== ROUTING SYSTEM =====
+
   function getRouteLetter() {
     const rawHash = decodeURIComponent(window.location.hash.replace(/^#/, ''));
     return rawHash || null;
@@ -89,13 +253,21 @@ document.addEventListener('DOMContentLoaded', () => {
   function render() {
     const routeLetter = getRouteLetter();
     if (!routeLetter) {
+      // Show onboarding before home
+      showOnboarding();
       renderHome();
       document.title = 'Kannada Kagunita — Kids';
       return;
     }
 
+    // Dismiss onboarding when navigating away from home
+    if (onboardingActive) {
+      dismissOnboarding();
+    }
+
     const item = getItemByLetter(routeLetter);
     if (!item) {
+      showOnboarding();
       renderHome();
       return;
     }

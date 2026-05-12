@@ -143,10 +143,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof THREE.OrbitControls === 'function') {
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.08;
+      controls.dampingFactor = 0.14;
+      controls.rotateSpeed = 0.45;
+      controls.zoomSpeed = 0.55;
       controls.enablePan = false;
       controls.minDistance = 2.4;
       controls.maxDistance = 7.5;
+      if (THREE.TOUCH) {
+        controls.touches.ONE = THREE.TOUCH.ROTATE;
+        controls.touches.TWO = THREE.TOUCH.DOLLY;
+      }
       controls.target.set(0, 0.2, 0);
       controls.update();
     }
@@ -199,8 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (model) {
       // Subtle floating animation
       if (!model._floatOffset) model._floatOffset = 0;
-      model._floatOffset += 0.01;
-      model.position.y = modelBaseY + Math.sin(model._floatOffset) * 0.06;
+      model._floatOffset += 0.004;
+      model.position.y = modelBaseY + Math.sin(model._floatOffset) * 0.03;
     }
 
     if (controls) {

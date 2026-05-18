@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const data = window.KAGUNITA_DATA || [];
+  const vattaData = window.VATTAKSHARA_DATA || [];
   const app = document.getElementById('app');
 
   // ===== ONBOARDING SYSTEM =====
@@ -387,11 +388,11 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     app.querySelectorAll('.tile').forEach((tile) => {
-      tile.addEventListener('click', () => setRoute(tile.dataset.letter));
+      tile.addEventListener('click', () => setRoute('k:' + tile.dataset.letter));
       tile.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          setRoute(tile.dataset.letter);
+          setRoute('k:' + tile.dataset.letter);
         }
       });
     });
@@ -431,35 +432,137 @@ document.addEventListener('DOMContentLoaded', () => {
       </section>
     `;
     app.querySelector('#homeBtn').addEventListener('click', () => setRoute(null));
-    app.querySelector('#prevBtn').addEventListener('click', () => setRoute(previousItem.letter));
-    app.querySelector('#nextBtn').addEventListener('click', () => setRoute(nextItem.letter));
+    app.querySelector('#prevBtn').addEventListener('click', () => setRoute('k:' + previousItem.letter));
+    app.querySelector('#nextBtn').addEventListener('click', () => setRoute('k:' + nextItem.letter));
+  }
+
+  // Mode selection (initial home) - choose between Kagunita and Vattakshara
+  function renderModeSelection() {
+    app.className = 'app home-mode';
+    app.innerHTML = `
+      <section class="home-hero">
+        <h2>Kannada Kagunita</h2>
+        <p style="color:var(--muted); margin-top:12px;">Choose a mode to explore</p>
+      </section>
+      <section style="display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin-top:18px;">
+        <button class="nav-btn" id="openKagunita" type="button">Kagunita</button>
+        <button class="nav-btn" id="openVatta" type="button">Vattakshara</button>
+      </section>
+    `;
+    const ok = app.querySelector('#openKagunita');
+    const ov = app.querySelector('#openVatta');
+    if (ok) ok.addEventListener('click', () => setRoute('kagunita'));
+    if (ov) ov.addEventListener('click', () => setRoute('vattakshara'));
+  }
+
+  // Vattakshara list (select page)
+  function renderVattaksharaList() {
+    app.className = 'app home-mode';
+    const tiles = vattaData.map((item, index) => `
+      <button class="tile" data-letter="${item.letter}" style="--tile-accent:${index % 2 === 0 ? '#8ec0ff' : '#ffd36e'}">
+        <div class="letter">${item.letter}</div>
+      </button>
+    `).join('');
+
+    app.innerHTML = `
+      <section class="home-hero">
+        <h2>ವತ್ತಾಕ್ಷರಗಳು</h2>
+      </section>
+      <section class="grid-shell">
+        <div class="grid-head">
+          <h3>Vattakshara</h3>
+        </div>
+        <div class="grid vattakshara-grid" aria-label="Vattakshara grid">${tiles}</div>
+      </section>
+    `;
+
+    app.querySelectorAll('.tile').forEach((tile) => {
+      tile.addEventListener('click', () => setRoute('v:' + tile.dataset.letter));
+      tile.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setRoute('v:' + tile.dataset.letter);
+        }
+      });
+    });
+  }
+
+  function getVattaByLetter(letter) {
+    return vattaData.find((item) => item.letter === letter) || null;
+  }
+
+  function renderVattaksharaView(item) {
+    app.className = 'app letter-mode';
+    const cards = `
+      <div class="syllable-card tone-a" style="font-size:clamp(72px, 10vw, 140px);">${item.letter}</div>
+    `;
+
+    app.innerHTML = `
+      <section class="letter-view">
+        <div class="letter-header">
+          <h2 class="letter-title">${item.title}</h2>
+          <button class="home-btn" id="homeBtn" type="button" aria-label="Home">⌂</button>
+        </div>
+        <section class="syllable-section">
+          <div class="syllable-grid" aria-label="${item.letter} vattakshara">${cards}</div>
+        </section>
+      </section>
+    `;
+
+    app.querySelector('#homeBtn').addEventListener('click', () => setRoute('vattakshara'));
   }
 
   function render() {
-    const routeLetter = getRouteLetter();
-    if (!routeLetter) {
-      renderHome();
-      if (!onboardingShown) {
-        showOnboarding();
-      }
+    const route = getRouteLetter();
+    if (!route) {
+      renderModeSelection();
+      if (!onboardingShown) showOnboarding();
       document.title = 'Kannada Kagunita — Kids';
       return;
     }
 
     // Dismiss onboarding when navigating away from home
-    if (onboardingActive) {
-      dismissOnboarding();
-    }
+    if (onboardingActive) dismissOnboarding();
 
-    const item = getItemByLetter(routeLetter);
-    if (!item) {
-      showOnboarding();
+    // Mode list pages
+    if (route === 'kagunita') {
       renderHome();
+      document.title = 'Kannada Kagunita — Kagunita';
+      return;
+    }
+    if (route === 'vattakshara') {
+      renderVattaksharaList();
+      document.title = 'Kannada Kagunita — Vattakshara';
       return;
     }
 
-    renderLetterView(item);
-    document.title = `Kannada Kagunita — ${item.letter}`;
+    // Letter views with prefixes: 'k:LETTER' or 'v:LETTER'
+    if (route.startsWith('k:')) {
+      const letter = route.slice(2);
+      const item = getItemByLetter(letter);
+      if (!item) {
+        renderModeSelection();
+        return;
+      }
+      renderLetterView(item);
+      document.title = `Kannada Kagunita — ${item.letter}`;
+      return;
+    }
+
+    if (route.startsWith('v:')) {
+      const letter = route.slice(2);
+      const item = getVattaByLetter(letter);
+      if (!item) {
+        renderVattaksharaList();
+        return;
+      }
+      renderVattaksharaView(item);
+      document.title = `Kannada Kagunita — ${item.letter}`;
+      return;
+    }
+
+    // Fallback: show mode selection
+    renderModeSelection();
   }
 
   window.addEventListener('hashchange', render);

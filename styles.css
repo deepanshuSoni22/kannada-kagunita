@@ -396,6 +396,11 @@ body{
   .tile .letter{font-size:64px}
   .syllable-grid{grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));}
   .syllable-card{font-size:72px}
+
+  /* Vattakshara: force 5 columns on wide/desktop only */
+  .vattakshara-grid{
+    grid-template-columns:repeat(5, 1fr);
+  }
 }
 
 @media(min-width:1024px){
